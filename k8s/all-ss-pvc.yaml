@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sample
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: worker
+  namespace: sample
+  labels:
+    app: worker
+spec:
+  selector:
+    matchLabels:
+      app: worker
+  serviceName: "worker"    
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: dok-sample:latest
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        ports:
+        - containerPort: 8080
+        command: ["/opt/server/bin/serve"]
+        args: ["/var/lib/storage", "0.0.0.0:8080"]
+        volumeMounts:
+        - mountPath: /var/lib/storage
+          name: worker-storage
+        imagePullPolicy: Never
+  volumeClaimTemplates:
+  - metadata:
+      name: worker-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "standard"
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+  namespace: sample
+  labels:
+    app: worker
+spec:
+  clusterIP: None
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: worker
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+   name: worker-pvc
+   namespace: sample
+   annotations:
+     volume.beta.kubernetes.io/storage-class: standard
+spec:
+   accessModes:
+     - ReadWriteOnce
+   resources:
+     requests:
+       storage: 1Gi
